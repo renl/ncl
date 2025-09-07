@@ -6,6 +6,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,10 +19,18 @@ var recursive bool
 
 // grepCmd represents the grep command
 var grepCmd = &cobra.Command{
-	Use:   "grep [-r] <pattern> [files_or_dirs...]",
-	Short: "Search for a regex pattern in files",
-	Long:  `Search for a regular expression pattern in files. Use -r to recurse into directories.`,
-	Args:  cobra.MinimumNArgs(1),
+	Use:   "grep [-r] <pattern> [files_or_dirs_or_-...]",
+	Short: "Search for a regex pattern in files or stdin",
+	Long: `Search for a regular expression pattern in files or standard input.
+
+Examples:
+  ncl grep TODO main.go
+  echo "hello world" | ncl grep "hello"
+  someCommand | ncl grep - "error"   # (also supported but pattern must remain first argument; prefer: someCommand | ncl grep "error")
+
+When no file arguments are provided (and -r is not set), input is read from stdin.
+Use -r to recurse into directories. Pass '-' explicitly to also read from stdin amidst other files.`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pattern := args[0]
 		re, err := regexp.Compile(pattern)
@@ -52,10 +61,24 @@ var grepCmd = &cobra.Command{
 			return nil
 		}
 
+		// If no targets and not recursive, read from stdin
 		if len(targets) == 0 {
-			return fmt.Errorf("no files provided; add files or use -r to search directories")
+			if verbose {
+				fmt.Println("[verbose] reading from stdin (no targets provided)")
+			}
+			return grepReader("(stdin)", os.Stdin, re)
 		}
+
 		for _, f := range targets {
+			if f == "-" { // explicit stdin
+				if verbose {
+					fmt.Println("[verbose] reading from explicit '-' (stdin)")
+				}
+				if err := grepReader("(stdin)", os.Stdin, re); err != nil {
+					return err
+				}
+				continue
+			}
 			if err := grepFile(f, re); err != nil {
 				return err
 			}
@@ -127,6 +150,33 @@ func grepFile(path string, re *regexp.Regexp) error {
 	}
 	if verbose {
 		fmt.Printf("[verbose] file done: %s (matches=%d)\n", path, matches)
+	}
+	return nil
+}
+
+// grepReader scans an arbitrary io.Reader (typically stdin) and applies the regex.
+// It mimics grepFile output formatting using the provided name label.
+func grepReader(name string, r io.Reader, re *regexp.Regexp) error {
+	if verbose {
+		fmt.Printf("[verbose] scanning stream: %s\n", name)
+	}
+	s := bufio.NewScanner(r)
+	lineNo := 0
+	matches := 0
+	for s.Scan() {
+		lineNo++
+		line := s.Text()
+		highlighted, count := highlightMatches(line, re)
+		if count > 0 {
+			matches += count
+			fmt.Printf("%s:%d: %s\n", name, lineNo, highlighted)
+		}
+	}
+	if err := s.Err(); err != nil {
+		return fmt.Errorf("scan %s: %w", name, err)
+	}
+	if verbose {
+		fmt.Printf("[verbose] stream done: %s (matches=%d)\n", name, matches)
 	}
 	return nil
 }

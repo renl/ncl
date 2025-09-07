@@ -55,18 +55,19 @@ Run `ncl --help` for the root help, or `ncl <command> --help` for any subcommand
 ## Commands
 
 ### `grep`
-Search for a (RE2) regular expression in files. Matches are color‑highlighted in red using ANSI escape codes.
+Search for a (RE2) regular expression in files or standard input. Matches are color‑highlighted in red using ANSI escape codes.
 
 Synopsis:
 ```text
-ncl grep [-r] <pattern> [files_or_dirs...]
+ncl grep [-r] <pattern> [files_or_dirs_or_-...]
 ```
 
 Key behaviors:
-- Without `-r`, you must pass one or more files (directories are skipped).
+- If no file arguments are provided (and `-r` is not used), input is read from stdin.
+- Pass `-` explicitly among other file names to also read stdin.
 - With `-r/--recursive`, you may pass directories (or nothing, which defaults to `.`).
 - Skips VCS directories: `.git`, `.hg`, `.svn`.
-- Prints lines in the format: `path:line_number: highlighted line`.
+- Prints lines in the format: `path:line_number: highlighted line` (stdin is labeled `(stdin)`).
 
 Examples:
 ```powershell
@@ -81,6 +82,12 @@ ncl grep "^package" cmd/*.go
 
 # Verbose recursive search
 ncl -v grep -r "Compile" ./cmd
+
+# Pipe from another command (stdin auto-detected)
+git diff | ncl grep "TODO"
+
+# Explicit stdin among other files
+type somefile.txt | ncl grep "pattern" - main.go
 ```
 
 Exit codes:
