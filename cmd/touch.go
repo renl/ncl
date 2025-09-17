@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/renl/ncl/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
 
@@ -18,20 +19,17 @@ var touchCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := args[0]
-		if verbose {
-			fmt.Printf("[verbose] creating file: %s\n", filename)
-		}
+		cmdutil.VPrintf(cmd, "creating file: %s", filename)
 		f, err := os.Create(filename)
 		if err != nil {
-			fmt.Printf("Failed to create file '%s': %v\n", filename, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Failed to create file '%s': %v\n", filename, err)
 			return
 		}
 		defer f.Close()
-		if verbose {
-			fi, _ := f.Stat()
-			fmt.Printf("[verbose] file created; size=%d perms=%#o\n", fi.Size(), fi.Mode().Perm())
+		if fi, statErr := f.Stat(); statErr == nil {
+			cmdutil.VPrintf(cmd, "file created; size=%d perms=%#o", fi.Size(), fi.Mode().Perm())
 		}
-		fmt.Printf("Created file: %s\n", filename)
+		fmt.Fprintf(cmd.OutOrStdout(), "Created file: %s\n", filename)
 	},
 }
 
