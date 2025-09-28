@@ -59,6 +59,7 @@ The project aims to provide commonly needed command-line utilities that are miss
 1. **grep**: A regex search command across files with optional recursive directory traversal and colored highlights
 2. **touch**: A command to create empty files (similar to Unix touch utility)
 3. **rm**: A command to remove files and directories with recursive and force options
+4. **ps**: A command to list running processes with their IDs
 
 All commands share a common global flag:
 - `-v, --verbose`: Enable extra diagnostic/tracing output for any command
@@ -73,13 +74,19 @@ All commands share a common global flag:
 ### Project Structure
 ```
 cmd/
-  root.go   # Root command & global flags
-  grep.go   # grep implementation
-  touch.go  # touch implementation
-  rm.go     # rm implementation
+  root.go      # Root command & global flags
+  grep.go      # grep implementation
+  touch.go     # touch implementation
+  rm.go        # rm implementation
+  ps.go        # ps command interface
 internal/
   cmdutil/  
     logging.go  # Shared utility functions for command output
+  process/     # Process listing functionality
+    process.go      # Process struct definition
+    ps_windows.go   # Windows-specific process listing
+    ps_unix.go      # Unix-specific process listing
+    ps_fallback.go  # Fallback implementation using external commands
 main.go     # Entry point calling cmd.Execute()
 ```
 
@@ -88,6 +95,7 @@ Each command is implemented as a separate file in the `cmd/` package, following 
 - Commands register themselves in their respective `init()` functions
 - Shared functionality like the global verbose flag is defined in `root.go`
 - Common utilities have been moved to `internal/cmdutil/` package for better code organization
+- Process listing functionality has been moved to `internal/process/` package for better separation of concerns
 
 ### Key Implementation Details
 
@@ -116,6 +124,16 @@ Each command is implemented as a separate file in the `cmd/` package, following 
 - Proper error handling with different behavior for `-f` flag
 - Uses the new `cmdutil.VPrintf` function for verbose logging
 
+#### ps Command
+- Lists running processes with their PIDs
+- Cross-platform implementation with OS-specific code paths:
+  - Windows: Uses Windows API calls (CreateToolhelp32Snapshot, Process32First, Process32Next)
+  - Unix-like systems (Linux, macOS, etc.): Reads from /proc filesystem
+  - Fallback: Uses external commands (tasklist on Windows, ps on Unix)
+- Provides consistent output format across platforms
+- Moved process listing implementation to `internal/process` package for better code organization
+- Uses the new `cmdutil.VPrintf` function for verbose logging
+
 #### Verbose Mode
 - All commands respect the global verbose flag
 - Provides detailed diagnostic information about execution flow
@@ -128,6 +146,13 @@ A new internal package `cmdutil` has been added with:
 - `EPrintf`: Handles error output formatting to stderr
 This improves code organization and reduces duplication between commands.
 
+#### New process Package
+A new internal package `process` has been added with:
+- `Process`: Struct definition for process information
+- `ListProcesses`: Cross-platform function to list running processes
+- OS-specific implementations for optimal performance on each platform
+This keeps the process listing functionality separate from the command implementation.
+
 ## Development Practices
 
 1. **Modular Design**: Each command is self-contained in its own file
@@ -137,6 +162,7 @@ This improves code organization and reduces duplication between commands.
 5. **Documentation**: Comprehensive README with examples and usage instructions
 6. **Output Handling**: Commands now properly use `cmd.OutOrStdout()` and `cmd.ErrOrStderr()` for better testability
 7. **Code Organization**: Common utilities moved to internal packages for better separation of concerns
+8. **Build Tags**: Used for OS-specific implementations to ensure optimal performance on each platform
 
 ## Installation & Distribution
 

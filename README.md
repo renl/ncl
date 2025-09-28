@@ -6,6 +6,7 @@ Current commands:
 - `grep`  – Regex search across files (with optional recursive directory walk + colored highlights)
 - `touch` – Create an empty file (like the Unix utility)
 - `rm`    – Remove files and directories (with optional recursive and force modes)
+- `ps`    – List running processes with their IDs
 
 Global flag:
 - `-v, --verbose` – Extra diagnostic / tracing output for any command
@@ -146,6 +147,33 @@ Exit codes:
 - `0` on success
 - Non-zero when any removal fails
 
+### `ps`
+List running processes with their process IDs.
+
+Synopsis:
+```text
+ncl ps
+```
+
+Key behaviors:
+- Shows a list of currently running processes
+- Displays process ID (PID) and process name
+- Works across Windows, macOS, and Linux systems
+- Uses native OS APIs for optimal performance when available
+
+Examples:
+```powershell
+# List all running processes
+ncl ps
+
+# List processes with verbose output
+ncl -v ps
+```
+
+Exit codes:
+- `0` on success
+- Non-zero when process listing fails
+
 ---
 ## Shell Completion
 Cobra's auto-generated `completion` command is enabled. Generate completions for your shell to get tab completion of commands & flags.
@@ -201,6 +229,7 @@ Adding `-v` prints:
 - Each file opened & summary of match counts
 - Skipped directories & reasons
 - Details about file/directory removal operations
+- Platform information for process listing
 
 Example snippet:
 ```text
@@ -212,6 +241,8 @@ Example snippet:
 [verbose] rm start: recursive=true, force=false, targets=1
 [verbose] removing directory recursively: test_dir
 [verbose] removed directory: test_dir
+...
+[verbose] ps command called on windows/amd64
 ```
 
 ---
@@ -219,13 +250,19 @@ Example snippet:
 Project structure:
 ```
 cmd/
-  root.go   # Root command & global flags
-  grep.go   # grep implementation
-  touch.go  # touch implementation
-  rm.go     # rm implementation
+  root.go      # Root command & global flags
+  grep.go      # grep implementation
+  touch.go     # touch implementation
+  rm.go        # rm implementation
+  ps.go        # ps command interface
 internal/
   cmdutil/
     logging.go  # Shared utility functions for command output
+  process/     # Process listing functionality
+    process.go      # Process struct definition
+    ps_windows.go   # Windows-specific process listing
+    ps_unix.go      # Unix-specific process listing
+    ps_fallback.go  # Fallback implementation using external commands
 main.go     # Entry point calling cmd.Execute()
 ```
 
@@ -257,6 +294,7 @@ See [LICENSE](LICENSE) for details.
 | Colors not showing | Use Windows Terminal / VS Code terminal or enable ANSI support. |
 | PowerShell completion not loading | Reopen shell or `.& $PROFILE`; confirm the profile line was appended. |
 | Invalid regex error | Verify your pattern is valid RE2 (Go regexp). Test with `go test` or simplify pattern. |
+| Process listing fails | Ensure you have appropriate permissions to list processes on your system. |
 
 ---
 ## Quick Reference
@@ -266,7 +304,8 @@ Help:       ncl --help
 Grep:       ncl grep -r "pattern" .
 Touch:      ncl touch newfile.txt
 Remove:     ncl rm unwanted.txt
-Verbose:    ncl -v grep "TODO" main.go
+Processes:  ncl ps
+Verbose:    ncl -v ps
 Completion: ncl completion powershell | Out-String | Invoke-Expression
 ```
 
