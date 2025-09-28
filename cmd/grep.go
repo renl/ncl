@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/renl/ncl/internal/cmdutil"
 	"github.com/spf13/cobra"
 )
 
@@ -39,22 +40,16 @@ Use -r to recurse into directories. Pass '-' explicitly to also read from stdin 
 		}
 
 		targets := args[1:]
-		if verbose {
-			fmt.Printf("[verbose] grep pattern=%q recursive=%v targets=%v\n", pattern, recursive, targets)
-		}
+		cmdutil.VPrintf(cmd, "grep pattern=%q recursive=%v targets=%v", pattern, recursive, targets)
 
 		if recursive {
 			if len(targets) == 0 {
 				targets = []string{"."}
-				if verbose {
-					fmt.Println("[verbose] no targets provided; defaulting to current directory '.'")
-				}
+				cmdutil.VPrintf(cmd, "no targets provided; defaulting to current directory '.'")
 			}
 			for _, t := range targets {
-				if verbose {
-					fmt.Printf("[verbose] walking: %s\n", t)
-				}
-				if err := grepRecursive(t, re); err != nil {
+				cmdutil.VPrintf(cmd, "walking: %s", t)
+				if err := grepRecursive(cmd, t, re); err != nil {
 					return err
 				}
 			}
@@ -63,23 +58,19 @@ Use -r to recurse into directories. Pass '-' explicitly to also read from stdin 
 
 		// If no targets and not recursive, read from stdin
 		if len(targets) == 0 {
-			if verbose {
-				fmt.Println("[verbose] reading from stdin (no targets provided)")
-			}
-			return grepReader("(stdin)", os.Stdin, re)
+			cmdutil.VPrintf(cmd, "reading from stdin (no targets provided)")
+			return grepReader(cmd, "(stdin)", os.Stdin, re)
 		}
 
 		for _, f := range targets {
 			if f == "-" { // explicit stdin
-				if verbose {
-					fmt.Println("[verbose] reading from explicit '-' (stdin)")
-				}
-				if err := grepReader("(stdin)", os.Stdin, re); err != nil {
+				cmdutil.VPrintf(cmd, "reading from explicit '-' (stdin)")
+				if err := grepReader(cmd, "(stdin)", os.Stdin, re); err != nil {
 					return err
 				}
 				continue
 			}
-			if err := grepFile(f, re); err != nil {
+			if err := grepFile(cmd, f, re); err != nil {
 				return err
 			}
 		}
@@ -87,7 +78,7 @@ Use -r to recurse into directories. Pass '-' explicitly to also read from stdin 
 	},
 }
 
-func grepRecursive(root string, re *regexp.Regexp) error {
+func grepRecursive(cmd *cobra.Command, root string, re *regexp.Regexp) error {
 	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -96,30 +87,23 @@ func grepRecursive(root string, re *regexp.Regexp) error {
 			// Skip VCS directories
 			base := filepath.Base(path)
 			if base == ".git" || base == ".hg" || base == ".svn" {
-				if verbose {
-					fmt.Printf("[verbose] skipping VCS directory: %s\n", path)
-				}
+				cmdutil.VPrintf(cmd, "skipping VCS directory: %s", path)
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if verbose {
-			fmt.Printf("[verbose] scanning file: %s\n", path)
-		}
-		return grepFile(path, re)
+		cmdutil.VPrintf(cmd, "scanning file: %s", path)
+		return grepFile(cmd, path, re)
 	})
 }
 
-func grepFile(path string, re *regexp.Regexp) error {
+func grepFile(cmd *cobra.Command, path string, re *regexp.Regexp) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	if fi.IsDir() {
-		// Skip directories in non-recursive mode
-		if verbose {
-			fmt.Printf("[verbose] skipping directory (non-recursive): %s\n", path)
-		}
+		cmdutil.VPrintf(cmd, "skipping directory (non-recursive): %s", path)
 		return nil
 	}
 
@@ -129,9 +113,7 @@ func grepFile(path string, re *regexp.Regexp) error {
 	}
 	defer f.Close()
 
-	if verbose {
-		fmt.Printf("[verbose] opened file: %s (size=%d bytes)\n", path, fi.Size())
-	}
+	cmdutil.VPrintf(cmd, "opened file: %s (size=%d bytes)", path, fi.Size())
 
 	s := bufio.NewScanner(f)
 	lineNo := 0
@@ -142,24 +124,20 @@ func grepFile(path string, re *regexp.Regexp) error {
 		highlighted, count := highlightMatches(line, re)
 		if count > 0 {
 			matches += count
-			fmt.Printf("%s:%d: %s\n", path, lineNo, highlighted)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s:%d: %s\n", path, lineNo, highlighted)
 		}
 	}
 	if err := s.Err(); err != nil {
 		return fmt.Errorf("scan %s: %w", path, err)
 	}
-	if verbose {
-		fmt.Printf("[verbose] file done: %s (matches=%d)\n", path, matches)
-	}
+	cmdutil.VPrintf(cmd, "file done: %s (matches=%d)", path, matches)
 	return nil
 }
 
 // grepReader scans an arbitrary io.Reader (typically stdin) and applies the regex.
 // It mimics grepFile output formatting using the provided name label.
-func grepReader(name string, r io.Reader, re *regexp.Regexp) error {
-	if verbose {
-		fmt.Printf("[verbose] scanning stream: %s\n", name)
-	}
+func grepReader(cmd *cobra.Command, name string, r io.Reader, re *regexp.Regexp) error {
+	cmdutil.VPrintf(cmd, "scanning stream: %s", name)
 	s := bufio.NewScanner(r)
 	lineNo := 0
 	matches := 0
@@ -169,15 +147,13 @@ func grepReader(name string, r io.Reader, re *regexp.Regexp) error {
 		highlighted, count := highlightMatches(line, re)
 		if count > 0 {
 			matches += count
-			fmt.Printf("%s:%d: %s\n", name, lineNo, highlighted)
+			fmt.Fprintf(cmd.OutOrStdout(), "%s:%d: %s\n", name, lineNo, highlighted)
 		}
 	}
 	if err := s.Err(); err != nil {
 		return fmt.Errorf("scan %s: %w", name, err)
 	}
-	if verbose {
-		fmt.Printf("[verbose] stream done: %s (matches=%d)\n", name, matches)
-	}
+	cmdutil.VPrintf(cmd, "stream done: %s (matches=%d)", name, matches)
 	return nil
 }
 
