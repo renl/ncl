@@ -50,7 +50,7 @@ This is the phase for critical self-reflection. Before proceeding, you must chal
 
 ## Project Overview
 
-**ncl (Neo Command Line)** is a lightweight, batteries-included collection of tiny developer convenience commands written in Go and powered by [Cobra](https://github.com/spf13/cobra). 
+**ncl (Neo Command Line)** is a lightweight, batteries-included collection of tiny developer convenience commands written in Go and powered by [Cobra](https://github.com/spf13/cobra).
 
 The project aims to provide commonly needed command-line utilities that are missing or inconsistent across different operating systems, particularly focusing on cross-platform compatibility and ease of installation via Go's toolchain.
 
@@ -58,8 +58,9 @@ The project aims to provide commonly needed command-line utilities that are miss
 
 1. **grep**: A regex search command across files with optional recursive directory traversal and colored highlights
 2. **touch**: A command to create empty files (similar to Unix touch utility)
+3. **rm**: A command to remove files and directories with recursive and force options
 
-Both commands share a common global flag:
+All commands share a common global flag:
 - `-v, --verbose`: Enable extra diagnostic/tracing output for any command
 
 ## Technical Architecture
@@ -75,6 +76,10 @@ cmd/
   root.go   # Root command & global flags
   grep.go   # grep implementation
   touch.go  # touch implementation
+  rm.go     # rm implementation
+internal/
+  cmdutil/  
+    logging.go  # Shared utility functions for command output
 main.go     # Entry point calling cmd.Execute()
 ```
 
@@ -82,6 +87,7 @@ Each command is implemented as a separate file in the `cmd/` package, following 
 - Each command defines a `cobra.Command` struct with usage info, flags, and execution logic
 - Commands register themselves in their respective `init()` functions
 - Shared functionality like the global verbose flag is defined in `root.go`
+- Common utilities have been moved to `internal/cmdutil/` package for better code organization
 
 ### Key Implementation Details
 
@@ -92,15 +98,35 @@ Each command is implemented as a separate file in the `cmd/` package, following 
 - Uses Go's `regexp` package for pattern matching (RE2 syntax)
 - Provides colored output using ANSI escape codes
 - Follows standard grep output format: `path:line_number: highlighted_line`
+- Now uses `cmd.OutOrStdout()` and `cmd.ErrOrStderr()` for proper output handling in tests
+- Uses the new `cmdutil.VPrintf` function for verbose logging
 
 #### touch Command
 - Creates empty files or truncates existing ones
 - Simple but essential functionality for cross-platform file creation
+- Now uses `cmd.OutOrStdout()` and `cmd.ErrOrStderr()` for proper output handling
+- Uses the new `cmdutil.VPrintf` function for verbose logging
+
+#### rm Command
+- Removes files and directories
+- Supports recursive removal with `-r` flag
+- Supports force mode with `-f` flag to ignore missing files
+- Uses `os.Lstat` for proper symlink handling
+- Uses `os.Remove` for files/symlinks and `os.RemoveAll` for directories
+- Proper error handling with different behavior for `-f` flag
+- Uses the new `cmdutil.VPrintf` function for verbose logging
 
 #### Verbose Mode
 - All commands respect the global verbose flag
 - Provides detailed diagnostic information about execution flow
+- Implemented through the new `cmdutil.VPrintf` function which checks the inherited `--verbose` flag
 - Useful for debugging and understanding command behavior
+
+#### New cmdutil Package
+A new internal package `cmdutil` has been added with:
+- `VPrintf`: Handles verbose output formatting and checking the verbose flag
+- `EPrintf`: Handles error output formatting to stderr
+This improves code organization and reduces duplication between commands.
 
 ## Development Practices
 
@@ -109,6 +135,8 @@ Each command is implemented as a separate file in the `cmd/` package, following 
 3. **Cross-Platform Compatibility**: Written in pure Go with platform-agnostic operations
 4. **Extensibility**: Easy to add new commands by following the established pattern
 5. **Documentation**: Comprehensive README with examples and usage instructions
+6. **Output Handling**: Commands now properly use `cmd.OutOrStdout()` and `cmd.ErrOrStderr()` for better testability
+7. **Code Organization**: Common utilities moved to internal packages for better separation of concerns
 
 ## Installation & Distribution
 
@@ -128,3 +156,5 @@ While the README doesn't specify testing practices, the development notes sugges
 - Running with Go's race detector during development (`go run -race`)
 - Using `go vet` for static analysis
 - Keeping dependencies clean with `go mod tidy`
+
+The use of `cmd.OutOrStdout()` and `cmd.ErrOrStderr()` suggests the code is designed with testing in mind, making it easier to capture and verify command output in tests.

@@ -5,6 +5,7 @@ A lightweight, batteries-included grab‑bag of tiny developer convenience comma
 Current commands:
 - `grep`  – Regex search across files (with optional recursive directory walk + colored highlights)
 - `touch` – Create an empty file (like the Unix utility)
+- `rm`    – Remove files and directories (with optional recursive and force modes)
 
 Global flag:
 - `-v, --verbose` – Extra diagnostic / tracing output for any command
@@ -109,6 +110,42 @@ ncl touch demo.txt
 
 Verbose mode prints file metadata after creation.
 
+### `rm`
+Remove files and directories, with support for recursive removal and force mode.
+
+Synopsis:
+```text
+ncl rm [-r] [-f] <path>...
+```
+
+Key behaviors:
+- By default, removes only files (not directories)
+- With `-r/--recursive`, removes directories and their contents recursively
+- With `-f/--force`, ignores nonexistent files and never prompts
+- Follows standard Unix `rm` behavior for error handling
+
+Examples:
+```powershell
+# Remove a file
+ncl rm unwanted.txt
+
+# Remove multiple files
+ncl rm file1.txt file2.txt
+
+# Remove directory recursively
+ncl rm -r unwanted_dir
+
+# Force remove (ignore missing files)
+ncl rm -f maybe_missing.txt
+
+# Remove directory recursively, ignoring errors
+ncl rm -rf unwanted_dir
+```
+
+Exit codes:
+- `0` on success
+- Non-zero when any removal fails
+
 ---
 ## Shell Completion
 Cobra's auto-generated `completion` command is enabled. Generate completions for your shell to get tab completion of commands & flags.
@@ -127,7 +164,7 @@ Persist across sessions (adds to profile):
 ```powershell
 # Ensure profile exists
 if (!(Test-Path -Path $PROFILE)) { New-Item -Type File -Path $PROFILE -Force | Out-Null }
-Add-Content $PROFILE "`ncl completion powershell | Out-String | Invoke-Expression`"
+Add-Content $PROFILE "`ncl completion powershell | Out-String | Invoke-Expression"
 ```
 Restart PowerShell (or `.& $PROFILE`).
 
@@ -163,6 +200,7 @@ Adding `-v` prints:
 - Each directory walked (recursive grep)
 - Each file opened & summary of match counts
 - Skipped directories & reasons
+- Details about file/directory removal operations
 
 Example snippet:
 ```text
@@ -171,6 +209,9 @@ Example snippet:
 [verbose] walking: .
 [verbose] scanning file: cmd/grep.go
 ...
+[verbose] rm start: recursive=true, force=false, targets=1
+[verbose] removing directory recursively: test_dir
+[verbose] removed directory: test_dir
 ```
 
 ---
@@ -181,6 +222,10 @@ cmd/
   root.go   # Root command & global flags
   grep.go   # grep implementation
   touch.go  # touch implementation
+  rm.go     # rm implementation
+internal/
+  cmdutil/
+    logging.go  # Shared utility functions for command output
 main.go     # Entry point calling cmd.Execute()
 ```
 
@@ -220,6 +265,7 @@ Install:    go install github.com/renl/ncl@develop
 Help:       ncl --help
 Grep:       ncl grep -r "pattern" .
 Touch:      ncl touch newfile.txt
+Remove:     ncl rm unwanted.txt
 Verbose:    ncl -v grep "TODO" main.go
 Completion: ncl completion powershell | Out-String | Invoke-Expression
 ```
