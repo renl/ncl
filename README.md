@@ -7,6 +7,7 @@ Current commands:
 - `touch` – Create an empty file (like the Unix utility)
 - `rm`    – Remove files and directories (with optional recursive and force modes)
 - `ps`    – List running processes with their IDs
+- `techlead gendoc` – Start an interactive AI-assisted tech lead document session
 
 Global flag:
 - `-v, --verbose` – Extra diagnostic / tracing output for any command
@@ -173,6 +174,37 @@ ncl -v ps
 Exit codes:
 - `0` on success
 - Non-zero when process listing fails
+
+### `techlead gendoc`
+Launch an interactive workshop that gathers project context and co-writes a Tech Lead planning document with an LLM via LangChainGo.
+
+Synopsis:
+```text
+ncl techlead gendoc [flags]
+```
+
+Workflow highlights:
+- Guided intake collects project name, context, goals, architecture direction, risks, timeline, and stakeholders.
+- Generates a Markdown tech lead plan (Summary, Goals & Non-Goals, Architecture, Implementation Plan, Risks, Stakeholders, Timeline, Open Questions, Next Steps).
+- Iterative refinement loop — type feedback to refresh the draft, or `:help` to discover session commands.
+- `:save [path]` saves the current draft at any point; providing `--out <file>` auto-saves on exit.
+- Supports OpenAI models via LangChainGo (`OPENAI_API_KEY` env or `--api-key`).
+
+Examples:
+```powershell
+# Start a session using the default OpenAI model
+ncl techlead gendoc
+
+# Specify a model and auto-save to a file on exit
+ncl techlead gendoc --model gpt-4o-mini --out .\techlead.md
+
+# Override the API key and base URL (Azure / custom proxy)
+ncl techlead gendoc --api-key "$env:OPENAI_API_KEY" --base-url https://example.openai.azure.com/v1
+```
+
+Exit codes:
+- `0` on normal completion or if the user exits during the briefing stage
+- Non-zero when provider configuration fails (e.g., missing API key)
 
 ---
 ## Shell Completion
