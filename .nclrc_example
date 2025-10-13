@@ -1,0 +1,20 @@
+# Example .nclrc configuration file for ncl CLI
+# Copy this file to one of the supported locations:
+#   1. ./ .nclrc (project directory)
+#   2. ~/.nclrc (home directory)
+#   3. ~/.ncl/.nclrc (dedicated config directory)
+# and adjust values as needed. All sections are optional.
+
+---
+
+gendoc:
+  # API key used by `ncl techlead gendoc`. If omitted, the command falls back to
+  # environment variables (e.g., OPENAI_API_KEY) or interactive prompts.
+  api_key: sk-your-secret
+
+  # Optional base URL for custom OpenAI-compatible deployments (e.g., Azure OpenAI).
+  # Leave empty to use the default provider endpoint.
+  base_url: https://example.openai.azure.com/v1
+
+  # Default model name to use if --model flag isn’t provided.
+  model: gpt-4o-mini

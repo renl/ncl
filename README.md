@@ -206,6 +206,23 @@ Exit codes:
 - `0` on normal completion or if the user exits during the briefing stage
 - Non-zero when provider configuration fails (e.g., missing API key)
 
+#### Configuration via `.nclrc`
+You can skip repetitive flags by placing a `.nclrc` YAML file in one of these locations (first match wins):
+
+1. Current working directory (`./.nclrc`)
+2. Home directory (`~/.nclrc`)
+3. NCL config directory (`~/.ncl/.nclrc`)
+
+Example:
+```yaml
+gendoc:
+  api_key: sk-your-secret
+  base_url: https://example.openai.azure.com/v1
+  model: gpt-4o-mini
+```
+
+Values from the config act as defaults; command-line flags still win when provided. Run with `--verbose` to see which config path was loaded.
+
 ---
 ## Shell Completion
 Cobra's auto-generated `completion` command is enabled. Generate completions for your shell to get tab completion of commands & flags.

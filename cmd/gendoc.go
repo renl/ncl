@@ -14,6 +14,7 @@ import (
 	"github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/renl/ncl/internal/cmdutil"
+	"github.com/renl/ncl/internal/config"
 	"github.com/renl/ncl/internal/techlead"
 )
 
@@ -38,6 +39,10 @@ the final Markdown.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := applyGendocConfig(cmd); err != nil {
+			return err
+		}
+
 		if err := validateTemperature(gendocTemperature); err != nil {
 			return err
 		}
@@ -57,6 +62,35 @@ the final Markdown.`,
 
 		return session.Run(cmd.Context())
 	},
+}
+
+func applyGendocConfig(cmd *cobra.Command) error {
+	cfg, err := config.LoadRC()
+	if err != nil {
+		return err
+	}
+	applyGendocConfigValues(cmd, cfg)
+	return nil
+}
+
+func applyGendocConfigValues(cmd *cobra.Command, cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+
+	if cfg.Gendoc.APIKey != "" && !cmd.Flags().Changed("api-key") {
+		gendocAPIKey = strings.TrimSpace(cfg.Gendoc.APIKey)
+	}
+	if cfg.Gendoc.BaseURL != "" && !cmd.Flags().Changed("base-url") {
+		gendocBaseURL = strings.TrimSpace(cfg.Gendoc.BaseURL)
+	}
+	if cfg.Gendoc.Model != "" && !cmd.Flags().Changed("model") {
+		gendocModel = strings.TrimSpace(cfg.Gendoc.Model)
+	}
+
+	if cfg.SourcePath != "" {
+		cmdutil.VPrintf(cmd, "loaded config from %s", cfg.SourcePath)
+	}
 }
 
 func init() {
